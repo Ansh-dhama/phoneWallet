@@ -1,0 +1,11 @@
+10:41:55.246 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: TXN-90E19643E8CF, Amount: 200
+10:41:55.251 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: TXN-90E19643E8CF, Amount: 200
+10:41:55.254 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: PAY-10CF92A4E59F, Amount: 100
+10:41:55.254 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: PAY-10CF92A4E59F, Amount: 100
+10:41:55.256 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: REFUND-AE21058323BD, Amount: 30
+10:41:55.256 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: REFUND-131ABFEAEC45, Amount: 70
+10:41:55.257 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: REV-D660E5775E5A, Amount: 200
+10:41:55.258 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: REV-D660E5775E5A, Amount: 200
+10:41:55.264 [main] INFO com.example.phoneWallet.services.AuditLedgerService -- Ledger verified successfully. Transaction Ref: LOAD-12BABC7C33FA, Amount: 500
+ALL CORE WALLET + NEGATIVE-PATH HARNESS TESTS PASSED
+transactions=8, ledgerEntries=12, outboxEvents=6

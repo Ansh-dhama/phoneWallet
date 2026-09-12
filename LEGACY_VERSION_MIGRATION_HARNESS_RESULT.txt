@@ -1,0 +1,13 @@
+10:41:43.347 [main] WARN com.example.phoneWallet.config.LegacyVersionMigration -- Backfilled 2 legacy NULL version value(s) in wallets
+10:41:43.349 [main] WARN com.example.phoneWallet.config.LegacyVersionMigration -- Backfilled 2 legacy NULL version value(s) in transactions
+10:41:43.349 [main] WARN com.example.phoneWallet.config.LegacyVersionMigration -- Backfilled 2 legacy NULL version value(s) in topup_intents
+LEGACY_VERSION_MIGRATION_HARNESS_PASS
+UPDATE:UPDATE `wallets` SET `version` = 0 WHERE `version` IS NULL
+QUERY:wallets
+EXECUTE:ALTER TABLE `wallets` MODIFY COLUMN `version` BIGINT NOT NULL DEFAULT 0
+UPDATE:UPDATE `transactions` SET `version` = 0 WHERE `version` IS NULL
+QUERY:transactions
+EXECUTE:ALTER TABLE `transactions` MODIFY COLUMN `version` BIGINT NOT NULL DEFAULT 0
+UPDATE:UPDATE `topup_intents` SET `version` = 0 WHERE `version` IS NULL
+QUERY:topup_intents
+EXECUTE:ALTER TABLE `topup_intents` MODIFY COLUMN `version` BIGINT NOT NULL DEFAULT 0

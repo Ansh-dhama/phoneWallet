@@ -1,0 +1,35 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Mac
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+*.env
+
+# Local secrets/config
+application-local.properties
+application-dev.properties
+
+# Build
+build/
