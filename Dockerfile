@@ -66,9 +66,4 @@ HEALTHCHECK --interval=30s \
             --retries=3 \
     CMD sh -c 'curl -fsS "http://localhost:${PORT:-10000}/actuator/health/readiness" || exit 1'
 
-ENTRYPOINT [
-    "java",
-    "-XX:MaxRAMPercentage=75",
-    "-jar",
-    "app.jar"
-]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
