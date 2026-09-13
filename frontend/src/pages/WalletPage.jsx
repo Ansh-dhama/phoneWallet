@@ -8,6 +8,59 @@ import { clearStoredWalletId, getStoredWalletId, persistWalletId } from '../util
 import { formatDate, formatMoney, generateIdempotencyKey, walletIdOf } from '../utils/format';
 import { Button, EmptyState, Field, LoadingBlock, PageHeader, SectionCard, StatusBadge } from '../components/UI';
 
+function loadRazorpayCheckout() {
+  if (window.Razorpay) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-phonewallet-razorpay="true"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Unable to load Razorpay Checkout.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.dataset.phonewalletRazorpay = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Unable to load Razorpay Checkout.'));
+    document.body.appendChild(script);
+  });
+}
+
+function openRazorpayCheckout({ keyId, intent, username }) {
+  return new Promise((resolve, reject) => {
+    const amountInSubunits = Math.round(Number(intent.amount) * 100);
+
+    const checkout = new window.Razorpay({
+      key: keyId,
+      amount: amountInSubunits,
+      currency: intent.currency,
+      name: 'PhoneWallet',
+      description: 'Add money to wallet',
+      order_id: intent.providerOrderId,
+      prefill: username ? { name: username } : undefined,
+      notes: {
+        walletId: String(intent.walletId),
+        topUpIntentId: String(intent.id),
+      },
+      retry: { enabled: true },
+      handler: (response) => resolve(response),
+      modal: {
+        ondismiss: () => reject(new Error('Payment cancelled.')),
+      },
+    });
+
+    checkout.on('payment.failed', (response) => {
+      const message = response?.error?.description || 'Payment failed.';
+      reject(new Error(message));
+    });
+
+    checkout.open();
+  });
+}
+
 export default function WalletPage() {
   const { auth, role } = useAuth();
   const { showToast } = useToast();
@@ -111,13 +164,24 @@ export default function WalletPage() {
         currency: wallet?.currency || 'INR',
         idempotencyKey: generateIdempotencyKey('topup'),
       });
-      let completed = intent;
-      if (intent.demoCompletionAllowed) {
-        completed = await topUpApi.completeDemo(intent.id);
-        showToast('Money added successfully.');
-      } else {
-        showToast('Top-up started. Your balance will update after payment confirmation.', 'info');
-      }
+      await loadRazorpayCheckout();
+      const config = await topUpApi.checkoutConfig();
+
+      const payment = await openRazorpayCheckout({
+        keyId: config.keyId,
+        intent,
+        username: auth?.username,
+      });
+
+      showToast('Payment received. Verifying with Razorpay…', 'info');
+
+      const completed = await topUpApi.verifyPayment(intent.id, {
+        razorpayPaymentId: payment.razorpay_payment_id,
+        razorpayOrderId: payment.razorpay_order_id,
+        razorpaySignature: payment.razorpay_signature,
+      });
+
+      showToast('Payment verified. Money added successfully.');
       setTopUpResult(completed);
       setTopUpForm({ amount: '' });
       await refreshSelected(walletId);

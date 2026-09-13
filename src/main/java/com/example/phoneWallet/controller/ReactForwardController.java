@@ -19,7 +19,8 @@ public class ReactForwardController {
             "/transactions",
             "/statements",
             "/refund",
-            "/admin"
+            "/admin",
+            "/account"
     })
     public String forwardToReact() {
         return "forward:/index.html";

@@ -2,6 +2,7 @@ package com.example.phoneWallet;
 
 import com.example.phoneWallet.Repository.TopUpIntentRepository;
 import com.example.phoneWallet.Repository.TransactionRepository;
+import com.example.phoneWallet.dto.RazorpayPaymentVerificationRequest;
 import com.example.phoneWallet.dto.TopUpIntentRequest;
 import com.example.phoneWallet.dto.TopUpIntentResponse;
 import com.example.phoneWallet.entity.TopUpIntent;
@@ -10,7 +11,6 @@ import com.example.phoneWallet.entity.User;
 import com.example.phoneWallet.entity.Wallet;
 import com.example.phoneWallet.enums.Role;
 import com.example.phoneWallet.enums.TopUpStatus;
-import com.example.phoneWallet.enums.TransactionStatus;
 import com.example.phoneWallet.enums.WalletStatus;
 import com.example.phoneWallet.services.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,14 +22,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * The old direct load-money test was intentionally replaced. Production code
- * no longer lets a client mint wallet balance directly; a top-up must first be
- * represented by a payment intent and only a verified/demo settlement credits it.
+ * Verifies that creating a Razorpay order never changes wallet balance and that
+ * wallet credit happens only after the Razorpay payment verification path succeeds.
  */
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceLoadMoneyTest {
@@ -42,6 +41,7 @@ class TransactionServiceLoadMoneyTest {
     @Mock AuditLedgerService auditLedgerService;
     @Mock OutboxEventService outboxEventService;
     @Mock AuditLogService auditLogService;
+    @Mock RazorpayPaymentService razorpayPaymentService;
 
     TopUpService topUpService;
     User user;
@@ -62,19 +62,20 @@ class TransactionServiceLoadMoneyTest {
         wallet.setStatus(WalletStatus.ACTIVE);
         wallet.setBalance(BigDecimal.ZERO);
 
-        TopUpSignatureService signatureService = new TopUpSignatureService("12345678901234567890123456789012");
         topUpService = new TopUpService(
                 topUpRepository, transactionRepository, walletService, accessControlService,
                 ledgerService, auditLedgerService, outboxEventService, auditLogService,
-                signatureService, true, new BigDecimal("50000")
+                razorpayPaymentService, new BigDecimal("50000")
         );
     }
 
     @Test
-    void initiatingTopUpDoesNotChangeWalletBalance() {
+    void initiatingTopUpCreatesRazorpayOrderButDoesNotChangeWalletBalance() {
         when(accessControlService.currentUser()).thenReturn(user);
         when(accessControlService.requireOwnedWallet(1L)).thenReturn(wallet);
         when(topUpRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        when(razorpayPaymentService.createOrder(new BigDecimal("8000.00"), "INR", 1L, 10L))
+                .thenReturn("order_TEST_1");
         when(topUpRepository.save(any(TopUpIntent.class))).thenAnswer(inv -> {
             TopUpIntent intent = inv.getArgument(0);
             intent.setId(99L);
@@ -86,13 +87,14 @@ class TransactionServiceLoadMoneyTest {
         );
 
         assertEquals(TopUpStatus.PENDING, response.status());
+        assertEquals("order_TEST_1", response.providerOrderId());
         assertEquals(0, wallet.getBalance().compareTo(BigDecimal.ZERO));
         verify(walletService, never()).credit(anyLong(), any());
         verifyNoInteractions(ledgerService);
     }
 
     @Test
-    void verifiedDemoSettlementCreditsOnceAndCreatesBalancedLedger() {
+    void verifiedRazorpaySettlementCreditsOnceAndCreatesBalancedLedger() {
         TopUpIntent intent = new TopUpIntent();
         intent.setId(99L);
         intent.setUserId(user.getId());
@@ -100,12 +102,20 @@ class TransactionServiceLoadMoneyTest {
         intent.setAmount(new BigDecimal("8000.00"));
         intent.setCurrency("INR");
         intent.setIdempotencyKey("scoped-key");
-        intent.setProviderOrderId("TOPUP-ABC");
+        intent.setProviderOrderId("order_TEST_1");
         intent.setStatus(TopUpStatus.PENDING);
+
+        RazorpayPaymentVerificationRequest request = new RazorpayPaymentVerificationRequest(
+                "pay_TEST_1", "order_TEST_1", "signature"
+        );
 
         when(topUpRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(intent));
         when(accessControlService.requireOwnedWallet(1L)).thenReturn(wallet);
-        when(transactionRepository.findByIdempotencyKey("topup-settlement:TOPUP-ABC")).thenReturn(Optional.empty());
+        when(razorpayPaymentService.verifyCapturedPayment(
+                "order_TEST_1", new BigDecimal("8000.00"), "INR", request))
+                .thenReturn("pay_TEST_1");
+        when(transactionRepository.findByIdempotencyKey("topup-settlement:order_TEST_1"))
+                .thenReturn(Optional.empty());
         when(walletService.credit(eq(1L), eq(new BigDecimal("8000.00")))).thenAnswer(inv -> {
             wallet.setBalance(wallet.getBalance().add(inv.getArgument(1)));
             return wallet;
@@ -114,9 +124,10 @@ class TransactionServiceLoadMoneyTest {
         when(topUpRepository.save(any(TopUpIntent.class))).thenAnswer(inv -> inv.getArgument(0));
         when(auditLedgerService.verifyTransaction(anyString())).thenReturn(true);
 
-        TopUpIntentResponse response = topUpService.completeDemo(99L);
+        TopUpIntentResponse response = topUpService.verifyRazorpayPayment(99L, request);
 
         assertEquals(TopUpStatus.COMPLETED, response.status());
+        assertEquals("pay_TEST_1", response.providerPaymentId());
         assertEquals(0, wallet.getBalance().compareTo(new BigDecimal("8000.00")));
         verify(ledgerService).recordExternalFundingDebit(anyString(), eq(new BigDecimal("8000.00")));
         verify(ledgerService).recordEntry(anyString(), eq(1L), any(), eq(new BigDecimal("8000.00")), eq(new BigDecimal("8000.00")));

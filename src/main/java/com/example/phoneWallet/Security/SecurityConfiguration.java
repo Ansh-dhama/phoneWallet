@@ -51,10 +51,10 @@ public class SecurityConfiguration {
                         .accessDeniedHandler((req, res, e) -> writeSecurityError(res, req.getRequestURI(), 403, "ACCESS_DENIED", "You do not have permission to access this resource")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/favicon.svg", "/vite.svg", "/error").permitAll()
-                        .requestMatchers("/login", "/signup", "/dashboard", "/wallet", "/transfer", "/pay", "/transactions", "/statements", "/refund", "/admin").permitAll()
+                        .requestMatchers("/login", "/signup", "/dashboard", "/wallet", "/transfer", "/pay", "/transactions", "/statements", "/refund", "/admin", "/account").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/topups/webhook").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/topups/razorpay/webhook").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 
@@ -66,7 +66,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/wallets/*/load-money").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/wallets/*/freeze", "/api/wallets/*/unfreeze", "/api/wallets/*/blacklist", "/api/wallets/*/unblacklist").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/api/topups/wallet/*", "/api/topups/*/demo-complete").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/topups/wallet/*", "/api/topups/*/verify-payment").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/topups/checkout-config").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/topups/wallet/*").hasAnyRole("USER", "ADMIN")
 
                         .requestMatchers(HttpMethod.POST, "/api/transactions/transfer", "/api/transactions/pay").hasRole("USER")
@@ -88,7 +89,7 @@ public class SecurityConfiguration {
         List<String> origins = Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList();
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Topup-Signature"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Topup-Signature", "X-Razorpay-Signature"));
         configuration.setExposedHeaders(List.of("X-Request-Id"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

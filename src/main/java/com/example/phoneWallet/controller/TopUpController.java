@@ -17,14 +17,23 @@ public class TopUpController {
         this.topUpService = topUpService;
     }
 
+    @GetMapping("/checkout-config")
+    public ResponseEntity<RazorpayCheckoutConfigResponse> checkoutConfig() {
+        return ResponseEntity.ok(topUpService.checkoutConfig());
+    }
+
     @PostMapping("/wallet/{walletId}")
-    public ResponseEntity<TopUpIntentResponse> initiate(@PathVariable Long walletId, @Valid @RequestBody TopUpIntentRequest request) {
+    public ResponseEntity<TopUpIntentResponse> initiate(
+            @PathVariable Long walletId,
+            @Valid @RequestBody TopUpIntentRequest request) {
         return ResponseEntity.ok(topUpService.initiate(walletId, request));
     }
 
-    @PostMapping("/{intentId}/demo-complete")
-    public ResponseEntity<TopUpIntentResponse> completeDemo(@PathVariable Long intentId) {
-        return ResponseEntity.ok(topUpService.completeDemo(intentId));
+    @PostMapping("/{intentId}/verify-payment")
+    public ResponseEntity<TopUpIntentResponse> verifyPayment(
+            @PathVariable Long intentId,
+            @Valid @RequestBody RazorpayPaymentVerificationRequest request) {
+        return ResponseEntity.ok(topUpService.verifyRazorpayPayment(intentId, request));
     }
 
     @GetMapping("/wallet/{walletId}")
@@ -33,13 +42,23 @@ public class TopUpController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(PageResponse.from(topUpService.listMine(
-                walletId, PageRequest.of(page, Math.min(Math.max(size, 1), 100), Sort.by(Sort.Direction.DESC, "createdAt")))));
+                walletId,
+                PageRequest.of(
+                        page,
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by(Sort.Direction.DESC, "createdAt")))));
     }
 
-    @PostMapping("/webhook")
-    public ResponseEntity<TopUpIntentResponse> webhook(
-            @RequestHeader("X-Topup-Signature") String signature,
-            @Valid @RequestBody TopUpWebhookRequest request) {
-        return ResponseEntity.ok(topUpService.handleWebhook(request, signature));
+    /**
+     * Real Razorpay webhook endpoint. Signature is verified against the exact raw body.
+     * Configure this URL in Razorpay Dashboard:
+     * https://YOUR_HOST/api/topups/razorpay/webhook
+     */
+    @PostMapping(value = "/razorpay/webhook", consumes = "application/json")
+    public ResponseEntity<Void> razorpayWebhook(
+            @RequestHeader("X-Razorpay-Signature") String signature,
+            @RequestBody String rawBody) {
+        topUpService.handleRazorpayWebhook(rawBody, signature);
+        return ResponseEntity.ok().build();
     }
 }

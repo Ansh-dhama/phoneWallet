@@ -37,8 +37,9 @@ export const walletApi = {
 };
 
 export const topUpApi = {
+  checkoutConfig: () => api.get('/api/topups/checkout-config').then((r) => r.data),
   initiate: (walletId, payload) => api.post(`/api/topups/wallet/${walletId}`, payload).then((r) => r.data),
-  completeDemo: (intentId) => api.post(`/api/topups/${intentId}/demo-complete`).then((r) => r.data),
+  verifyPayment: (intentId, payload) => api.post(`/api/topups/${intentId}/verify-payment`, payload).then((r) => r.data),
   byWallet: (walletId, page = 0, size = 20) => api.get(`/api/topups/wallet/${walletId}`, { params: { page, size } }).then((r) => r.data),
 };
 
